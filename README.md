@@ -1,4 +1,4 @@
-# 🦀 todo-cli
+# 🦀 rs-todo-cli
 
 A fast, minimal, and reliable **command-line TODO manager** written in **Rust** — built to help you stay organized right from your terminal.
 

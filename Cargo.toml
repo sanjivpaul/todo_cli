@@ -1,7 +1,15 @@
 [package]
-name = "todo_cli"
+name = "rs-todo-cli"
 version = "0.1.0"
 edition = "2024"
+authors = ["sanjivpaul"]
+description = "A simple TODO CLI app written in Rust"
+license = "MIT"
+repository = "https://github.com/sanjivpaul/todo_cli"
+readme = "README.md"
+keywords = ["todo", "cli", "task", "productivity"]
+categories = ["command-line-utilities"]
+homepage = "https://github.com/sanjivpaul/todo_cli"
 
 [[bin]]
 name = "todo"        # final binary name

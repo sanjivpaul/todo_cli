@@ -1,0 +1,131 @@
+name: Build, Package, and Release
+
+on:
+  push:
+    tags:
+      - "v*" # triggers on version tags (like v0.1.0)
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and Package (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            platform: linux
+            arch: x86_64
+            ext: ""
+            archive: tar.gz
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            platform: macos
+            arch: x86_64
+            ext: ""
+            archive: tar.gz
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            platform: macos
+            arch: arm64
+            ext: ""
+            archive: tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows
+            arch: x86_64
+            ext: .exe
+            archive: zip
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Get version from Cargo.toml
+        id: version
+        run: |
+          VERSION=$(grep '^version' Cargo.toml | head -1 | cut -d '"' -f2)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Detected version: $VERSION"
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package binary
+        run: |
+          mkdir -p release_binaries/${{ matrix.platform }}/${{ matrix.arch }}
+          BIN_NAME="todo${{ matrix.ext }}"
+          BIN_PATH="target/${{ matrix.target }}/release/${BIN_NAME}"
+
+          cp "$BIN_PATH" "release_binaries/${{ matrix.platform }}/${{ matrix.arch }}/"
+
+          cd release_binaries
+          if [ "${{ matrix.archive }}" = "tar.gz" ]; then
+            tar -czf "todo-${{ matrix.platform }}-${{ matrix.arch }}-v${{ env.VERSION }}.tar.gz" -C "${{ matrix.platform }}/${{ matrix.arch }}" "${BIN_NAME}"
+          else
+            powershell Compress-Archive -Path "${{ matrix.platform }}\\${{ matrix.arch }}\\${BIN_NAME}" -DestinationPath "todo-${{ matrix.platform }}-${{ matrix.arch }}-v${{ env.VERSION }}.zip"
+          fi
+          cd ..
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: todo-${{ matrix.platform }}-${{ matrix.arch }}
+          path: release_binaries/todo-${{ matrix.platform }}-${{ matrix.arch }}-v${{ env.VERSION }}.*
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release_binaries
+
+      - name: Get version from Cargo.toml
+        id: version
+        run: |
+          VERSION=$(grep '^version' Cargo.toml | head -1 | cut -d '"' -f2)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Update README.md with version and table
+        run: |
+          echo "📝 Updating README.md with release info"
+          TABLE=$(cat <<'EOF'
+            | Platform | Architecture | File | Download |
+            |-----------|---------------|------|-----------|
+            | 🐧 **Linux** | x86_64 | `todo-linux-x86_64-v${{ env.VERSION }}.tar.gz` | [Download](release_binaries/todo-linux-x86_64-v${{ env.VERSION }}.tar.gz) |
+            | 🍎 **macOS (Intel)** | x86_64 | `todo-macos-x86_64-v${{ env.VERSION }}.tar.gz` | [Download](release_binaries/todo-macos-x86_64-v${{ env.VERSION }}.tar.gz) |
+            | 🍏 **macOS (Apple Silicon)** | arm64 | `todo-macos-arm64-v${{ env.VERSION }}.tar.gz` | [Download](release_binaries/todo-macos-arm64-v${{ env.VERSION }}.tar.gz) |
+            | 🪟 **Windows** | x86_64 | `todo-windows-x86_64-v${{ env.VERSION }}.zip` | [Download](release_binaries/todo-windows-x86_64-v${{ env.VERSION }}.zip) |
+            EOF
+            )
+          awk -v tbl="$TABLE" '/## 🧱 Release Binaries/{print;print tbl;next}1' README.md > tmp && mv tmp README.md
+
+      - name: Commit README update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "Update README with v${{ env.VERSION }} release table"
+          git push
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release_binaries/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

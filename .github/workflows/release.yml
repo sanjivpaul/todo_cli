@@ -107,16 +107,32 @@ jobs:
       - name: Update README.md with version and table
         run: |
           echo "📝 Updating README.md with release info"
-          TABLE=$(cat <<'EOF'
+
+          # Create the markdown table in a separate file
+          cat > release_table.txt <<'EOF'
             | Platform | Architecture | File | Download |
             |-----------|---------------|------|-----------|
-            | 🐧 **Linux** | x86_64 | `todo-linux-x86_64-v${{ env.VERSION }}.tar.gz` | [Download](release_binaries/todo-linux-x86_64-v${{ env.VERSION }}.tar.gz) |
-            | 🍎 **macOS (Intel)** | x86_64 | `todo-macos-x86_64-v${{ env.VERSION }}.tar.gz` | [Download](release_binaries/todo-macos-x86_64-v${{ env.VERSION }}.tar.gz) |
-            | 🍏 **macOS (Apple Silicon)** | arm64 | `todo-macos-arm64-v${{ env.VERSION }}.tar.gz` | [Download](release_binaries/todo-macos-arm64-v${{ env.VERSION }}.tar.gz) |
-            | 🪟 **Windows** | x86_64 | `todo-windows-x86_64-v${{ env.VERSION }}.zip` | [Download](release_binaries/todo-windows-x86_64-v${{ env.VERSION }}.zip) |
+            | 🐧 **Linux** | x86_64 | `todo-linux-x86_64-v${VERSION}.tar.gz` | [Download](release_binaries/todo-linux-x86_64-v${VERSION}.tar.gz) |
+            | 🍎 **macOS (Intel)** | x86_64 | `todo-macos-x86_64-v${VERSION}.tar.gz` | [Download](release_binaries/todo-macos-x86_64-v${VERSION}.tar.gz) |
+            | 🍏 **macOS (Apple Silicon)** | arm64 | `todo-macos-arm64-v${VERSION}.tar.gz` | [Download](release_binaries/todo-macos-arm64-v${VERSION}.tar.gz) |
+            | 🪟 **Windows** | x86_64 | `todo-windows-x86_64-v${VERSION}.zip` | [Download](release_binaries/todo-windows-x86_64-v${VERSION}.zip) |
             EOF
-            )
-          awk -v tbl="$TABLE" '/## 🧱 Release Binaries/{print;print tbl;next}1' README.md > tmp && mv tmp README.md
+
+          # Safely update README.md
+          awk -v ver="$VERSION" -v tbl="$(cat release_table.txt)" '
+            BEGIN {printed=0}
+            /## 🧱 Release Binaries/ {
+              print;
+              print "";
+              print "You can download precompiled binaries for your platform below (version **v" ver "**):";
+              print "";
+              print tbl;
+              printed=1;
+              next
+            }
+            {print}
+            END { if (printed==0) print "## 🧱 Release Binaries\n\n" tbl }
+          ' README.md > tmp && mv tmp README.md
 
       - name: Commit README update
         run: |

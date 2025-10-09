@@ -100,7 +100,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: release_binaries
-          name: '*'  # downloads all matrix artifacts
+          name: "*" # downloads all matrix artifacts
 
       - name: List downloaded artifacts
         run: ls -R release_binaries
@@ -113,20 +113,20 @@ jobs:
 
       - name: Generate release table
         run: |
-          cat > release_table.txt <<'EOF'
-| Platform | Architecture | File | Download |
-|-----------|---------------|------|-----------|
-| 🐧 Linux | x86_64 | todo-linux-x86_64-v${VERSION}.tar.gz | [Download](release_binaries/todo-linux-x86_64-v${VERSION}.tar.gz) |
-| 🍎 macOS Intel | x86_64 | todo-macos-x86_64-v${VERSION}.tar.gz | [Download](release_binaries/todo-macos-x86_64-v${VERSION}.tar.gz) |
-| 🍏 macOS ARM | arm64 | todo-macos-arm64-v${VERSION}.tar.gz | [Download](release_binaries/todo-macos-arm64-v${VERSION}.tar.gz) |
-| 🪟 Windows | x86_64 | todo-windows-x86_64-v${VERSION}.zip | [Download](release_binaries/todo-windows-x86_64-v${VERSION}.zip) |
-EOF
+          cat > release_table.txt <<EOF
+          | Platform | Architecture | File | Download |
+          |-----------|---------------|------|-----------|
+          | 🐧 Linux | x86_64 | todo-linux-x86_64-v${VERSION}.tar.gz | [Download](release_binaries/todo-linux-x86_64-v${VERSION}.tar.gz) |
+          | 🍎 macOS Intel | x86_64 | todo-macos-x86_64-v${VERSION}.tar.gz | [Download](release_binaries/todo-macos-x86_64-v${VERSION}.tar.gz) |
+          | 🍏 macOS ARM | arm64 | todo-macos-arm64-v${VERSION}.tar.gz | [Download](release_binaries/todo-macos-arm64-v${VERSION}.tar.gz) |
+          | 🪟 Windows | x86_64 | todo-windows-x86_64-v${VERSION}.zip | [Download](release_binaries/todo-windows-x86_64-v${VERSION}.zip) |
+          EOF
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: release_binaries/**/*  # all binaries uploaded
+          files: release_binaries/**/* # all binaries uploaded
           body_path: release_table.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

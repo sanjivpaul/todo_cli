@@ -3,7 +3,7 @@ name: Build, Package, and Release
 on:
   push:
     tags:
-      - "v*" # triggers on version tags (like v0.1.0)
+      - "v*" # triggers on version tags like v0.1.1
 
 permissions:
   contents: write
@@ -88,6 +88,9 @@ jobs:
     name: Create GitHub Release
     needs: build
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout code
@@ -104,47 +107,22 @@ jobs:
           VERSION=$(grep '^version' Cargo.toml | head -1 | cut -d '"' -f2)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Update README.md with version and table
+      - name: Generate release table
         run: |
-          echo "📝 Updating README.md with release info"
-
-          # Create the markdown table in a separate file
           cat > release_table.txt <<'EOF'
             | Platform | Architecture | File | Download |
             |-----------|---------------|------|-----------|
-            | 🐧 **Linux** | x86_64 | `todo-linux-x86_64-v${VERSION}.tar.gz` | [Download](release_binaries/todo-linux-x86_64-v${VERSION}.tar.gz) |
-            | 🍎 **macOS (Intel)** | x86_64 | `todo-macos-x86_64-v${VERSION}.tar.gz` | [Download](release_binaries/todo-macos-x86_64-v${VERSION}.tar.gz) |
-            | 🍏 **macOS (Apple Silicon)** | arm64 | `todo-macos-arm64-v${VERSION}.tar.gz` | [Download](release_binaries/todo-macos-arm64-v${VERSION}.tar.gz) |
-            | 🪟 **Windows** | x86_64 | `todo-windows-x86_64-v${VERSION}.zip` | [Download](release_binaries/todo-windows-x86_64-v${VERSION}.zip) |
+            | 🐧 Linux | x86_64 | todo-linux-x86_64-v${VERSION}.tar.gz | [Download](release_binaries/todo-linux-x86_64-v${VERSION}.tar.gz) |
+            | 🍎 macOS Intel | x86_64 | todo-macos-x86_64-v${VERSION}.tar.gz | [Download](release_binaries/todo-macos-x86_64-v${VERSION}.tar.gz) |
+            | 🍏 macOS ARM | arm64 | todo-macos-arm64-v${VERSION}.tar.gz | [Download](release_binaries/todo-macos-arm64-v${VERSION}.tar.gz) |
+            | 🪟 Windows | x86_64 | todo-windows-x86_64-v${VERSION}.zip | [Download](release_binaries/todo-windows-x86_64-v${VERSION}.zip) |
             EOF
-
-          # Safely update README.md
-          awk -v ver="$VERSION" -v tbl="$(cat release_table.txt)" '
-            BEGIN {printed=0}
-            /## 🧱 Release Binaries/ {
-              print;
-              print "";
-              print "You can download precompiled binaries for your platform below (version **v" ver "**):";
-              print "";
-              print tbl;
-              printed=1;
-              next
-            }
-            {print}
-            END { if (printed==0) print "## 🧱 Release Binaries\n\n" tbl }
-          ' README.md > tmp && mv tmp README.md
-
-      - name: Commit README update
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add README.md
-          git commit -m "Update README with v${{ env.VERSION }} release table"
-          git push
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_name }}
           files: release_binaries/**/*
+          body_path: release_table.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

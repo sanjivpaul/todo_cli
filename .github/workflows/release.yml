@@ -64,19 +64,17 @@ jobs:
 
       - name: Package binary
         run: |
-          mkdir -p release_binaries/${{ matrix.platform }}/${{ matrix.arch }}
+          mkdir -p release_binaries
           BIN_NAME="todo${{ matrix.ext }}"
           BIN_PATH="target/${{ matrix.target }}/release/${BIN_NAME}"
 
-          cp "$BIN_PATH" "release_binaries/${{ matrix.platform }}/${{ matrix.arch }}/"
-
-          cd release_binaries
           if [ "${{ matrix.archive }}" = "tar.gz" ]; then
-            tar -czf "todo-${{ matrix.platform }}-${{ matrix.arch }}-v${{ env.VERSION }}.tar.gz" -C "${{ matrix.platform }}/${{ matrix.arch }}" "${BIN_NAME}"
+            tar -czf "release_binaries/todo-${{ matrix.platform }}-${{ matrix.arch }}-v${{ env.VERSION }}.tar.gz" -C "target/${{ matrix.target }}/release" "${BIN_NAME}"
           else
-            powershell Compress-Archive -Path "${{ matrix.platform }}\\${{ matrix.arch }}\\${BIN_NAME}" -DestinationPath "todo-${{ matrix.platform }}-${{ matrix.arch }}-v${{ env.VERSION }}.zip"
+            cd target/${{ matrix.target }}/release
+            powershell Compress-Archive -Path "${BIN_NAME}" -DestinationPath "../../../release_binaries/todo-${{ matrix.platform }}-${{ matrix.arch }}-v${{ env.VERSION }}.zip"
+            cd ../../..
           fi
-          cd ..
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -99,30 +97,72 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: release_binaries
+          path: artifacts
+          merge-multiple: true
 
       - name: Get version from Cargo.toml
         id: version
         run: |
           VERSION=$(grep '^version' Cargo.toml | head -1 | cut -d '"' -f2)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Generate release table
+      - name: List downloaded files
         run: |
-          cat > release_table.txt <<'EOF'
-            | Platform | Architecture | File | Download |
-            |-----------|---------------|------|-----------|
-            | 🐧 Linux | x86_64 | todo-linux-x86_64-v${VERSION}.tar.gz | [Download](release_binaries/todo-linux-x86_64-v${VERSION}.tar.gz) |
-            | 🍎 macOS Intel | x86_64 | todo-macos-x86_64-v${VERSION}.tar.gz | [Download](release_binaries/todo-macos-x86_64-v${VERSION}.tar.gz) |
-            | 🍏 macOS ARM | arm64 | todo-macos-arm64-v${VERSION}.tar.gz | [Download](release_binaries/todo-macos-arm64-v${VERSION}.tar.gz) |
-            | 🪟 Windows | x86_64 | todo-windows-x86_64-v${VERSION}.zip | [Download](release_binaries/todo-windows-x86_64-v${VERSION}.zip) |
-            EOF
+          echo "Downloaded artifacts:"
+          ls -R artifacts/
+
+      - name: Generate release notes
+        run: |
+          cat > release_notes.md <<EOF
+          # 🦀 TODO CLI v${{ env.VERSION }}
+
+          Download the binary for your platform:
+
+          | Platform | Architecture | Download |
+          |----------|--------------|----------|
+          | 🐧 Linux | x86_64 | [todo-linux-x86_64-v${{ env.VERSION }}.tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/todo-linux-x86_64-v${{ env.VERSION }}.tar.gz) |
+          | 🍎 macOS (Intel) | x86_64 | [todo-macos-x86_64-v${{ env.VERSION }}.tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/todo-macos-x86_64-v${{ env.VERSION }}.tar.gz) |
+          | 🍏 macOS (Apple Silicon) | arm64 | [todo-macos-arm64-v${{ env.VERSION }}.tar.gz](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/todo-macos-arm64-v${{ env.VERSION }}.tar.gz) |
+          | 🪟 Windows | x86_64 | [todo-windows-x86_64-v${{ env.VERSION }}.zip](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/todo-windows-x86_64-v${{ env.VERSION }}.zip) |
+
+          ## Installation
+
+          ### Linux / macOS
+          \`\`\`bash
+          # Download and extract
+          tar -xzf todo-<platform>-<arch>-v${{ env.VERSION }}.tar.gz
+
+          # Make executable and move to PATH
+          chmod +x todo
+          sudo mv todo /usr/local/bin/
+          \`\`\`
+
+          ### Windows
+          \`\`\`powershell
+          # Extract the zip file
+          # Move todo.exe to a directory in your PATH
+          \`\`\`
+
+          ## Usage
+          \`\`\`bash
+          todo add "Your task here"
+          todo list
+          todo complete <id>
+          todo remove <id>
+          \`\`\`
+          EOF
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: release_binaries/**/*
-          body_path: release_table.txt
+          name: Release ${{ github.ref_name }}
+          body_path: release_notes.md
+          files: |
+            artifacts/*.tar.gz
+            artifacts/*.zip
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

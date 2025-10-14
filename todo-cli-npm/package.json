@@ -1,0 +1,26 @@
+{
+  "name": "rs-todo-cli",
+  "version": "0.1.1",
+  "description": "A simple TODO CLI app written in Rust",
+  "bin": {
+    "todo": "bin/todo"
+  },
+  "preferGlobal": true,
+  "author": "Sanjiv Paul",
+  "license": "MIT",
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sanjivpaul/todo_cli.git"
+  },
+  "keywords": [
+    "todo",
+    "cli",
+    "task",
+    "productivity"
+  ]
+}
